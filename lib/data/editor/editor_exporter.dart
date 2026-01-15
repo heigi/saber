@@ -25,7 +25,7 @@ abstract class EditorExporter {
 
   static Future<pw.Document> generatePdf(
     EditorCoreInfo coreInfo,
-    BuildContext context,
+    BuildContext? context,
   ) async {
     if (coreInfo.pages.isNotEmpty && coreInfo.pages.last.isEmpty) {
       // don't export the empty last page
@@ -35,19 +35,21 @@ abstract class EditorExporter {
     }
 
     final pdf = pw.Document();
-    final screenshotController = ScreenshotController();
+    final ScreenshotController? screenshotController = context != null ? ScreenshotController() : null;
 
     // screenshot each page
-    final pageScreenshots = await Future.wait(
-      List.generate(
-        coreInfo.pages.length,
-        (pageIndex) => screenshotPage(
-          coreInfo: coreInfo,
-          pageIndex: pageIndex,
-          screenshotController: screenshotController,
-        ),
-      ),
-    );
+    final List<Uint8List?> pageScreenshots = screenshotController != null
+      ? await Future.wait(
+          List.generate(
+            coreInfo.pages.length,
+            (pageIndex) => screenshotPage(
+              coreInfo: coreInfo,
+              pageIndex: pageIndex,
+              screenshotController: screenshotController,
+            ),
+          ),
+        )
+      : List.filled(coreInfo.pages.length, null);
 
     for (int pageIndex = 0; pageIndex < pageScreenshots.length; ++pageIndex) {
       final page = coreInfo.pages[pageIndex];
@@ -113,11 +115,13 @@ abstract class EditorExporter {
                     }
                   }
                 },
-                child: pw.Image(
-                  pw.MemoryImage(pageScreenshots[pageIndex]),
-                  width: pageSize.width,
-                  height: pageSize.height,
-                ),
+                child: pageScreenshots[pageIndex] != null
+                  ? pw.Image(
+                      pw.MemoryImage(pageScreenshots[pageIndex]!),
+                      width: pageSize.width,
+                      height: pageSize.height,
+                    )
+                  : pw.SizedBox.shrink(),
               ),
             );
           },
